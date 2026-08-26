@@ -1,0 +1,54 @@
+name: Sync rank insignias
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sync-rank-insignias.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update dashboard and landing insignias
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          shared = r'''function rankSvg(type,high){const icons={initiate:high?'<path d="M24 64h72"/><path d="M36 43 60 61 84 43"/><path d="M43 25h34"/><path d="M52 13h16"/>':'<path d="M31 63h58"/><path d="M40 42 60 58 80 42"/>',vanguard:high?'<path d="M60 10 91 27v31c0 17-13 27-31 34-18-7-31-17-31-34V27z"/><path d="M60 70V28"/><path d="m44 44 16-16 16 16"/><path d="M43 59h34"/>':'<path d="M60 14 88 30v28c0 15-12 24-28 31-16-7-28-16-28-31V30z"/><path d="m45 52 15-17 15 17"/>',warrior:high?'<path d="M31 20 89 78"/><path d="M89 20 31 78"/><path d="m27 16 13 4-9 9z"/><path d="m93 16-13 4 9 9z"/><path d="M39 76h42"/><path d="M46 64h28"/>':'<path d="M34 22 86 74"/><path d="M86 22 34 74"/><path d="m30 18 12 4-8 8z"/><path d="m90 18-12 4 8 8z"/>',titan:high?'<path d="M24 20h72l-9 20H69v43H51V40H33z"/><path d="M18 29 29 12h62l11 17"/><path d="M39 84h42"/><path d="M46 71h28"/>':'<path d="M31 23h58l-8 18H68v41H52V41H39z"/><path d="M42 82h36"/>',kolos:high?'<path d="m24 34 16 13 20-29 20 29 16-13-8 43H32z"/><path d="M32 77h56"/><path d="M39 63h42"/><circle cx="60" cy="18" r="4"/>':'<path d="m28 38 14 10 18-26 18 26 14-10-7 37H35z"/><path d="M35 75h50"/>',dominus:'<circle cx="60" cy="50" r="38"/><path d="m60 16 9 23 25 1-20 15 7 24-21-14-21 14 7-24-20-15 25-1z"/><circle cx="60" cy="50" r="8"/><path d="M44 91h32"/>'};return'<svg viewBox="0 0 120 100" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">'+icons[type]+'</svg>'}'''
+
+          # Dashboard: replace the whole local SVG renderer, preserve everything else.
+          p=Path('dashboard.html')
+          s=p.read_text()
+          dash_fn=shared.replace('function rankSvg','function svg')
+          ns,n=re.subn(r"function svg\(type,high\)\{.*?\}function actual",dash_fn+'function actual',s,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'dashboard svg replacement count={n}')
+          p.write_text(ns)
+
+          # Landing: use exactly the same insignias.
+          p=Path('index.html')
+          s=p.read_text()
+          landing_fn=shared.replace('function rankSvg','function svgInsignia')
+          ns,n=re.subn(r"function svgInsignia\(type,high\)\{.*?\}\nfunction renderLandingRanks",landing_fn+'\nfunction renderLandingRanks',s,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'index svg replacement count={n}')
+          ns=ns.replace('.demoShield{width:60px;height:68px;clip-path:polygon(50% 0,91% 19%,91% 74%,50% 100%,9% 74%,9% 19%);background:#7b2b1b;color:#ffddcf;display:grid;place-items:center;font-weight:950;font-size:20px}', '.demoShield{width:68px;height:68px;border-radius:18px;border:2px solid #f49a82;background:#fff0eb;color:#7b2b1b;display:grid;place-items:center}.demoShield svg{width:54px;height:54px}')
+          ns=ns.replace('<div class="demoShield">III</div>', '<div class="demoShield" id="demoShield"></div>')
+          ns=ns.replace('renderLandingRanks();renderAll();', "renderLandingRanks();document.getElementById('demoShield').innerHTML=svgInsignia('warrior',false);renderAll();")
+          p.write_text(ns)
+          PY
+      - name: Commit synchronized insignias
+        shell: bash
+        run: |
+          git config user.name "KOLOS Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add dashboard.html index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Synchronize rank insignias across KOLOS"
+          git push
