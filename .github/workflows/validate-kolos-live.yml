@@ -1,0 +1,68 @@
+name: KOLOS live smoke test
+
+on:
+  push:
+    paths:
+      - 'dashboard.html'
+      - 'questionnaire.html'
+      - 'admin.html'
+      - '.github/workflows/validate-kolos-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate dashboard integration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          html = Path('dashboard.html').read_text()
+          required = [
+              'get_my_rank_plan',
+              'start_my_rank_session',
+              'complete_rank_aware_workout',
+              'get_my_today_rank_state',
+              'KOLOS COMMAND CENTER',
+              'Adaptivni KOLOS engine',
+              'DOMINUS — APEX',
+          ]
+          missing = [x for x in required if x not in html]
+          if missing:
+              raise SystemExit('Missing live V2 markers: ' + ', '.join(missing))
+          forbidden = ['PROGRAM U PRIPREMI', '>U pripremi<']
+          bad = [x for x in forbidden if x in html]
+          if bad:
+              raise SystemExit('Legacy placeholders still present: ' + ', '.join(bad))
+
+          m = re.search(r'<script type="module">(.*)</script>', html, re.S)
+          if not m:
+              raise SystemExit('Dashboard module script not found')
+          Path('/tmp/kolos-dashboard.mjs').write_text(m.group(1))
+          PY
+          node --check /tmp/kolos-dashboard.mjs
+
+      - name: Validate questionnaire JavaScript
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('questionnaire.html').read_text()
+          if 'save_my_onboarding' not in html:
+              raise SystemExit('Onboarding RPC missing')
+          if 'vežbe koje želiš da izbegavaš' in html.lower():
+              raise SystemExit('Removed limitations question returned')
+          m = re.search(r'<script type="module">(.*)</script>', html, re.S)
+          if not m:
+              raise SystemExit('Questionnaire module script not found')
+          Path('/tmp/kolos-questionnaire.mjs').write_text(m.group(1))
+          PY
+          node --check /tmp/kolos-questionnaire.mjs
