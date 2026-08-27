@@ -37,7 +37,7 @@ const palettes={
   dominus:['#fff0b6','#f0c54b','#664b10']
 };
 const p=palettes[type]||palettes.initiate;
-const id='rk_'+type+'_'+(high?'h':'l');
+const id='rk_'+type+'_'+(high?'h':'l')+'_'+Math.random().toString(36).slice(2,7);
 const sigils={
   initiate:'<path d="M46 40h28v8H46zM50 54h20v8H50z"/>',
   vanguard:'<path d="M60 34 77 50 60 66 43 50z"/><path d="M60 42v16M52 50h16"/>',
