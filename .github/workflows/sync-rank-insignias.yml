@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Update landing rank insignias
+      - name: Apply KOLOS crest ranks across live site
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          landing_fn = r'''function svgInsignia(type,high){
+          shared = r'''function rankSvg(type,high){
           const palettes={
             initiate:['#f2f4f6','#aab1b8','#343a40'],
             vanguard:['#d8ecff','#67a7ff','#173e78'],
@@ -30,7 +30,7 @@ jobs:
             dominus:['#fff0b6','#f0c54b','#664b10']
           };
           const p=palettes[type]||palettes.initiate;
-          const id='rk_'+type+'_'+(high?'h':'l');
+          const id='rk_'+type+'_'+(high?'h':'l')+'_'+Math.random().toString(36).slice(2,7);
           const sigils={
             initiate:'<path d="M46 40h28v8H46zM50 54h20v8H50z"/>',
             vanguard:'<path d="M60 34 77 50 60 66 43 50z"/><path d="M60 42v16M52 50h16"/>',
@@ -56,19 +56,47 @@ jobs:
           '</svg>';
           }'''
 
+          # Landing page
           p=Path('index.html')
           s=p.read_text()
+          landing_fn=shared.replace('function rankSvg','function svgInsignia')
           ns,n=re.subn(r"function svgInsignia\(type,high\)\{.*?\}\nfunction renderLandingRanks",landing_fn+'\nfunction renderLandingRanks',s,flags=re.S)
           if n!=1:
-              raise SystemExit(f'index svg replacement count={n}')
+              raise SystemExit(f'index renderer replacement count={n}')
           p.write_text(ns)
+
+          # Dashboard / account page
+          p=Path('dashboard.html')
+          s=p.read_text()
+          dash_fn=shared.replace('function rankSvg','function svg')
+          ns,n=re.subn(r"function svg\(type,high\)\{.*?\}function actual",dash_fn+'function actual',s,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'dashboard renderer replacement count={n}')
+          # remove boxy frame so the crest itself is the visual
+          ns=ns.replace('.bigInsignia{width:138px;height:138px;border-radius:32px;border:2px solid var(--rank);display:grid;place-items:center;color:var(--rank-dark);background:#fff}', '.bigInsignia{width:138px;height:138px;display:grid;place-items:center;background:transparent}')
+          ns=ns.replace('.bigInsignia svg{width:110px;height:110px}', '.bigInsignia svg{width:132px;height:132px}')
+          p.write_text(ns)
+
+          # Admin list: show the same crest next to each user's rank
+          p=Path('admin.html')
+          s=p.read_text()
+          admin_css='.rankVisual{display:flex;align-items:center;gap:8px}.rankIcon{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto}.rankIcon svg{width:42px;height:42px}.rank{display:inline-flex;padding:6px 9px;border-radius:999px;background:#f0f1ed;color:#555b53;font-size:10px;font-weight:1000}'
+          s=s.replace('.rank{display:inline-flex;padding:6px 9px;border-radius:999px;background:#f0f1ed;color:#555b53;font-size:10px;font-weight:1000}', admin_css)
+          admin_helpers=shared+'function rankType(name){const x=(name||\'INITIATE\').toLowerCase();return [\'initiate\',\'vanguard\',\'warrior\',\'titan\',\'kolos\',\'dominus\'].includes(x)?x:\'initiate\'}function rankHigh(sub,rank){return String(sub||\'\').toUpperCase()===\'VIŠI\'||String(rank||\'\').toUpperCase()===\'DOMINUS\'}'
+          s=s.replace('function render(list){',admin_helpers+'function render(list){',1)
+          old='<span class="rank">${safe((u.current_rank||\'INITIATE\')+\' — \'+(u.current_subrank||\'NIŽI\'))}</span>'
+          new='<span class="rankVisual"><span class="rankIcon">${rankSvg(rankType(u.current_rank),rankHigh(u.current_subrank,u.current_rank))}</span><span class="rank">${safe((u.current_rank||\'INITIATE\')+\' — \'+(u.current_subrank||\'NIŽI\'))}</span></span>'
+          if old not in s:
+              raise SystemExit('admin rank template not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
           PY
-      - name: Commit landing insignias
+      - name: Commit live-site rank unification
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html
+          git add index.html dashboard.html admin.html
           git diff --cached --quiet && exit 0
-          git commit -m "Refine KOLOS rank badges with contained crest geometry"
+          git commit -m "Apply KOLOS crest ranks across live site"
           git push
