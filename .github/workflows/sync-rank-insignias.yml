@@ -13,90 +13,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply KOLOS crest ranks across live site
+      - name: Add live user blocking controls
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
-          shared = r'''function rankSvg(type,high){
-          const palettes={
-            initiate:['#f2f4f6','#aab1b8','#343a40'],
-            vanguard:['#d8ecff','#67a7ff','#173e78'],
-            warrior:['#ffd2c6','#ff8068','#7f3022'],
-            titan:['#eadcff','#a86bff','#3a235d'],
-            kolos:['#efffb2','#b9ea38','#40540d'],
-            dominus:['#fff0b6','#f0c54b','#664b10']
-          };
-          const p=palettes[type]||palettes.initiate;
-          const id='rk_'+type+'_'+(high?'h':'l')+'_'+Math.random().toString(36).slice(2,7);
-          const sigils={
-            initiate:'<path d="M46 40h28v8H46zM50 54h20v8H50z"/>',
-            vanguard:'<path d="M60 34 77 50 60 66 43 50z"/><path d="M60 42v16M52 50h16"/>',
-            warrior:'<path d="M47 39 73 65M73 39 47 65"/><path d="m44 36 8 2-6 6zM76 36l-8 2 6 6z"/>',
-            titan:'<path d="M42 38h36l-5 11H66v22H54V49h-7z"/>',
-            kolos:'<path d="M60 34v34M60 50l13-10M60 50l13 11M60 50 48 40M60 50 47 61"/>',
-            dominus:'<path d="m60 34 6 13 14 1-11 9 4 14-13-8-13 8 4-14-11-9 14-1z"/>'
-          };
-          const extra=high?'<path d="M42 28 51 20 60 28 69 20 78 28 75 36H45z"/><path d="M60 16 66 24 60 32 54 24z"/>':'<path d="M48 29h24l-4 7H52z"/>';
-          return '<svg viewBox="0 0 120 104" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'+
-            '<defs><linearGradient id="'+id+'g" x1="30" y1="18" x2="88" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="'+p[0]+'"/><stop offset=".48" stop-color="'+p[1]+'"/><stop offset="1" stop-color="'+p[2]+'"/></linearGradient><linearGradient id="'+id+'d" x1="28" y1="22" x2="88" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#20242a"/><stop offset="1" stop-color="#0d1014"/></linearGradient></defs>'+
-            '<g stroke="#15191d" stroke-width="3.6" stroke-linejoin="round">'+
-              '<path d="M60 8 94 28 88 73 60 96 32 73 26 28z" fill="url(#'+id+'d)"/>'+
-              '<path d="M60 13 88 30 82 68 60 88 38 68 32 30z" fill="url(#'+id+'g)"/>'+
-              '<path d="M60 20 80 33 75 63 60 79 45 63 40 33z" fill="#15191d"/>'+
-              '<path d="M35 35 46 29 48 39 39 46zM85 35 74 29 72 39 81 46z" fill="'+p[1]+'"/>'+
-              '<path d="M39 68 49 73 60 83 71 73 81 68 78 78 60 91 42 78z" fill="'+p[2]+'"/>'+
-              '<g fill="url(#'+id+'g)">'+extra+'</g>'+
-              '<g fill="url(#'+id+'g)" stroke-width="3">'+sigils[type]+'</g>'+
-            '</g>'+
-            '<path d="M42 33 60 22 78 33" fill="none" stroke="'+p[0]+'" stroke-width="1.5" opacity=".9"/>'+
-            '<path d="M44 67 60 81 76 67" fill="none" stroke="'+p[0]+'" stroke-width="1.2" opacity=".7"/>'+
-          '</svg>';
-          }'''
-
-          # Landing page
-          p=Path('index.html')
-          s=p.read_text()
-          landing_fn=shared.replace('function rankSvg','function svgInsignia')
-          ns,n=re.subn(r"function svgInsignia\(type,high\)\{.*?\}\nfunction renderLandingRanks",landing_fn+'\nfunction renderLandingRanks',s,flags=re.S)
-          if n!=1:
-              raise SystemExit(f'index renderer replacement count={n}')
-          p.write_text(ns)
-
-          # Dashboard / account page
-          p=Path('dashboard.html')
-          s=p.read_text()
-          dash_fn=shared.replace('function rankSvg','function svg')
-          ns,n=re.subn(r"function svg\(type,high\)\{.*?\}function actual",dash_fn+'function actual',s,flags=re.S)
-          if n!=1:
-              raise SystemExit(f'dashboard renderer replacement count={n}')
-          # remove boxy frame so the crest itself is the visual
-          ns=ns.replace('.bigInsignia{width:138px;height:138px;border-radius:32px;border:2px solid var(--rank);display:grid;place-items:center;color:var(--rank-dark);background:#fff}', '.bigInsignia{width:138px;height:138px;display:grid;place-items:center;background:transparent}')
-          ns=ns.replace('.bigInsignia svg{width:110px;height:110px}', '.bigInsignia svg{width:132px;height:132px}')
-          p.write_text(ns)
-
-          # Admin list: show the same crest next to each user's rank
+          # ADMIN: add block/unblock controls to every non-admin user row.
           p=Path('admin.html')
           s=p.read_text()
-          admin_css='.rankVisual{display:flex;align-items:center;gap:8px}.rankIcon{width:42px;height:42px;display:grid;place-items:center;flex:0 0 auto}.rankIcon svg{width:42px;height:42px}.rank{display:inline-flex;padding:6px 9px;border-radius:999px;background:#f0f1ed;color:#555b53;font-size:10px;font-weight:1000}'
-          s=s.replace('.rank{display:inline-flex;padding:6px 9px;border-radius:999px;background:#f0f1ed;color:#555b53;font-size:10px;font-weight:1000}', admin_css)
-          admin_helpers=shared+'function rankType(name){const x=(name||\'INITIATE\').toLowerCase();return [\'initiate\',\'vanguard\',\'warrior\',\'titan\',\'kolos\',\'dominus\'].includes(x)?x:\'initiate\'}function rankHigh(sub,rank){return String(sub||\'\').toUpperCase()===\'VIŠI\'||String(rank||\'\').toUpperCase()===\'DOMINUS\'}'
-          s=s.replace('function render(list){',admin_helpers+'function render(list){',1)
-          old='<span class="rank">${safe((u.current_rank||\'INITIATE\')+\' — \'+(u.current_subrank||\'NIŽI\'))}</span>'
-          new='<span class="rankVisual"><span class="rankIcon">${rankSvg(rankType(u.current_rank),rankHigh(u.current_subrank,u.current_rank))}</span><span class="rank">${safe((u.current_rank||\'INITIATE\')+\' — \'+(u.current_subrank||\'NIŽI\'))}</span></span>'
-          if old not in s:
-              raise SystemExit('admin rank template not found')
-          s=s.replace(old,new,1)
+          css='.userActions{display:flex;gap:7px;align-items:center}.blockBtn{background:#171a16;color:#fff}.blockBtn.unblock{background:#c8ff4d;color:#121411}.blockBtn:disabled{opacity:.35;cursor:not-allowed}.accountState{display:inline-flex;margin-top:6px;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:1000;letter-spacing:.08em}.accountState.blocked{background:#ffe5df;color:#8b2e1f}.accountState.active{background:#eff8dc;color:#41520e}'
+          if '.userActions{' not in s:
+              s=s.replace('.details{display:none',css+'.details{display:none',1)
+
+          email_old='<div class="email">${safe(u.email)}</div>'
+          email_new='<div class="email">${safe(u.email)}</div><span class="accountState ${u.is_blocked?\'blocked\':\'active\'}">${u.is_blocked?\'BLOKIRAN\':\'AKTIVAN\'}</span>'
+          if email_old in s and 'accountState ${u.is_blocked' not in s:
+              s=s.replace(email_old,email_new,1)
+
+          btn_old='<button class="btn soft openBtn">Detalji</button>'
+          btn_new='<div class="userActions"><button class="btn soft openBtn">Detalji</button><button class="btn blockBtn ${u.is_blocked?\'unblock\':\'\'}" data-user="${u.user_id}" data-blocked="${u.is_blocked?\'1\':\'0\'}" ${u.role===\'admin\'?\'disabled title="Admin nalog se ne blokira"\':\'\'}>${u.is_blocked?\'Odblokiraj\':\'Blokiraj\'}</button></div>'
+          if btn_old in s and 'data-blocked=' not in s:
+              s=s.replace(btn_old,btn_new,1)
+
+          handler_old="document.querySelectorAll('.openBtn').forEach(b=>b.onclick=()=>b.closest('.user').classList.toggle('open'))}"
+          handler_new="document.querySelectorAll('.openBtn').forEach(b=>b.onclick=()=>b.closest('.user').classList.toggle('open'));document.querySelectorAll('.blockBtn').forEach(b=>b.onclick=async()=>{if(b.disabled)return;const willBlock=b.dataset.blocked!=='1';const label=willBlock?'blokiraš':'odblokiraš';if(!confirm('Da li sigurno želiš da '+label+' ovog korisnika?'))return;b.disabled=true;b.textContent='Sačekaj…';const{error}=await supabase.rpc('admin_set_user_blocked',{target_user:b.dataset.user,new_blocked:willBlock});if(error){alert('Greška: '+error.message);b.disabled=false;return}await boot()})}"
+          if handler_old in s and 'admin_set_user_blocked' not in s:
+              s=s.replace(handler_old,handler_new,1)
+          p.write_text(s)
+
+          # DASHBOARD: hard-stop blocked members before loading KOLOS account content.
+          p=Path('dashboard.html')
+          s=p.read_text()
+          marker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}"
+          replacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){q('loading').classList.add('hidden');document.body.innerHTML='<div style=\"min-height:100vh;display:grid;place-items:center;background:#f7f5ee;font-family:Inter,system-ui,sans-serif;padding:24px\"><div style=\"max-width:560px;background:#fff;border:1px solid #dedfd7;border-radius:28px;padding:34px;text-align:center;box-shadow:0 18px 50px rgba(20,22,18,.08)\"><img src=\"assets/kolos-logo-final.svg?v=9\" style=\"width:190px;max-width:70%;margin-bottom:22px\"><div style=\"font-size:11px;font-weight:1000;letter-spacing:.13em;color:#8b2e1f\">PRISTUP BLOKIRAN</div><h1 style=\"font-size:38px;margin:10px 0\">KOLOS nalog je trenutno blokiran.</h1><p style=\"color:#6c7169;line-height:1.65\">Trenutno ne možeš da koristiš svoj KOLOS nalog. Kada administrator ponovo odobri pristup, moći ćeš normalno da nastaviš.</p><button id=\"blockedLogout\" style=\"margin-top:14px;border:0;border-radius:14px;padding:12px 18px;background:#121411;color:#fff;font-weight:900;cursor:pointer\">Odjava</button></div></div>';document.getElementById('blockedLogout').onclick=async()=>{await supabase.auth.signOut();location.href='login.html'};return}"
+          if marker in s and 'PRISTUP BLOKIRAN' not in s:
+              s=s.replace(marker,replacement,1)
+          p.write_text(s)
+
+          # QUESTIONNAIRE: blocked members cannot bypass dashboard by opening onboarding directly.
+          p=Path('questionnaire.html')
+          s=p.read_text()
+          qmarker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}"
+          qreplacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){alert('Tvoj KOLOS nalog je trenutno blokiran.');await supabase.auth.signOut();location.href='login.html';return}"
+          if qmarker in s and 'Tvoj KOLOS nalog je trenutno blokiran.' not in s:
+              s=s.replace(qmarker,qreplacement,1)
           p.write_text(s)
           PY
-      - name: Commit live-site rank unification
+      - name: Commit blocking controls
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html dashboard.html admin.html
+          git add admin.html dashboard.html questionnaire.html
           git diff --cached --quiet && exit 0
-          git commit -m "Apply KOLOS crest ranks across live site"
+          git commit -m "Add admin user blocking controls"
           git push
