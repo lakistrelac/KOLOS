@@ -13,59 +13,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add live user blocking controls
+      - name: Fix questionnaire completion flow
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          # ADMIN: add block/unblock controls to every non-admin user row.
-          p=Path('admin.html')
-          s=p.read_text()
-          css='.userActions{display:flex;gap:7px;align-items:center}.blockBtn{background:#171a16;color:#fff}.blockBtn.unblock{background:#c8ff4d;color:#121411}.blockBtn:disabled{opacity:.35;cursor:not-allowed}.accountState{display:inline-flex;margin-top:6px;padding:4px 7px;border-radius:999px;font-size:9px;font-weight:1000;letter-spacing:.08em}.accountState.blocked{background:#ffe5df;color:#8b2e1f}.accountState.active{background:#eff8dc;color:#41520e}'
-          if '.userActions{' not in s:
-              s=s.replace('.details{display:none',css+'.details{display:none',1)
-
-          email_old='<div class="email">${safe(u.email)}</div>'
-          email_new='<div class="email">${safe(u.email)}</div><span class="accountState ${u.is_blocked?\'blocked\':\'active\'}">${u.is_blocked?\'BLOKIRAN\':\'AKTIVAN\'}</span>'
-          if email_old in s and 'accountState ${u.is_blocked' not in s:
-              s=s.replace(email_old,email_new,1)
-
-          btn_old='<button class="btn soft openBtn">Detalji</button>'
-          btn_new='<div class="userActions"><button class="btn soft openBtn">Detalji</button><button class="btn blockBtn ${u.is_blocked?\'unblock\':\'\'}" data-user="${u.user_id}" data-blocked="${u.is_blocked?\'1\':\'0\'}" ${u.role===\'admin\'?\'disabled title="Admin nalog se ne blokira"\':\'\'}>${u.is_blocked?\'Odblokiraj\':\'Blokiraj\'}</button></div>'
-          if btn_old in s and 'data-blocked=' not in s:
-              s=s.replace(btn_old,btn_new,1)
-
-          handler_old="document.querySelectorAll('.openBtn').forEach(b=>b.onclick=()=>b.closest('.user').classList.toggle('open'))}"
-          handler_new="document.querySelectorAll('.openBtn').forEach(b=>b.onclick=()=>b.closest('.user').classList.toggle('open'));document.querySelectorAll('.blockBtn').forEach(b=>b.onclick=async()=>{if(b.disabled)return;const willBlock=b.dataset.blocked!=='1';const label=willBlock?'blokiraš':'odblokiraš';if(!confirm('Da li sigurno želiš da '+label+' ovog korisnika?'))return;b.disabled=true;b.textContent='Sačekaj…';const{error}=await supabase.rpc('admin_set_user_blocked',{target_user:b.dataset.user,new_blocked:willBlock});if(error){alert('Greška: '+error.message);b.disabled=false;return}await boot()})}"
-          if handler_old in s and 'admin_set_user_blocked' not in s:
-              s=s.replace(handler_old,handler_new,1)
-          p.write_text(s)
-
-          # DASHBOARD: hard-stop blocked members before loading KOLOS account content.
-          p=Path('dashboard.html')
-          s=p.read_text()
-          marker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}"
-          replacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){q('loading').classList.add('hidden');document.body.innerHTML='<div style=\"min-height:100vh;display:grid;place-items:center;background:#f7f5ee;font-family:Inter,system-ui,sans-serif;padding:24px\"><div style=\"max-width:560px;background:#fff;border:1px solid #dedfd7;border-radius:28px;padding:34px;text-align:center;box-shadow:0 18px 50px rgba(20,22,18,.08)\"><img src=\"assets/kolos-logo-final.svg?v=9\" style=\"width:190px;max-width:70%;margin-bottom:22px\"><div style=\"font-size:11px;font-weight:1000;letter-spacing:.13em;color:#8b2e1f\">PRISTUP BLOKIRAN</div><h1 style=\"font-size:38px;margin:10px 0\">KOLOS nalog je trenutno blokiran.</h1><p style=\"color:#6c7169;line-height:1.65\">Trenutno ne možeš da koristiš svoj KOLOS nalog. Kada administrator ponovo odobri pristup, moći ćeš normalno da nastaviš.</p><button id=\"blockedLogout\" style=\"margin-top:14px;border:0;border-radius:14px;padding:12px 18px;background:#121411;color:#fff;font-weight:900;cursor:pointer\">Odjava</button></div></div>';document.getElementById('blockedLogout').onclick=async()=>{await supabase.auth.signOut();location.href='login.html'};return}"
-          if marker in s and 'PRISTUP BLOKIRAN' not in s:
-              s=s.replace(marker,replacement,1)
-          p.write_text(s)
-
-          # QUESTIONNAIRE: blocked members cannot bypass dashboard by opening onboarding directly.
           p=Path('questionnaire.html')
           s=p.read_text()
-          qmarker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}"
-          qreplacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){location.href='login.html';return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){alert('Tvoj KOLOS nalog je trenutno blokiran.');await supabase.auth.signOut();location.href='login.html';return}"
-          if qmarker in s and 'Tvoj KOLOS nalog je trenutno blokiran.' not in s:
-              s=s.replace(qmarker,qreplacement,1)
+
+          s=s.replace('<h2>Oprema i ograničenja</h2>','<h2>Oprema</h2>')
+          s=s.replace('<div class="field full"><label>Pokreti ili vežbe koje želiš da izbegavaš (opciono)</label><textarea id="limitations"></textarea></div>','')
+
+          old="q('finish').onclick=async()=>{if(!valid())return;q('finish').disabled=true;q('finish').textContent='Čuvam...';const payload={user_id:user.id,preferred_environment:state.environment,primary_goal:state.goal,age:Number(q('age').value),body_weight:Number(q('weight').value),experience_level:q('level').value,training_days:Number(q('days').value),session_minutes:Number(q('minutes').value),pushups_band:q('pushups').value,pullups_band:q('pullups').value,plank_band:q('plank').value,cardio_level:q('cardio').value,equipment:[q('equipment').value],limitations:q('limitations').value.trim(),updated_at:new Date().toISOString()};const{error:e1}=await supabase.from('onboarding_profiles').upsert(payload);if(e1){q('error').textContent='Čuvanje nije uspelo. Pokušaj ponovo.';q('error').classList.remove('hidden');q('finish').disabled=false;q('finish').textContent='Formiraj profil';return}await supabase.from('profiles').update({onboarding_complete:true,updated_at:new Date().toISOString()}).eq('id',user.id);"
+          new="q('finish').onclick=async()=>{if(!valid())return;q('finish').disabled=true;q('finish').textContent='Čuvam...';const{error:e1}=await supabase.rpc('save_my_onboarding',{p_preferred_environment:state.environment,p_primary_goal:state.goal,p_age:Number(q('age').value),p_body_weight:Number(q('weight').value),p_experience_level:q('level').value,p_training_days:Number(q('days').value),p_session_minutes:Number(q('minutes').value),p_pushups_band:q('pushups').value,p_pullups_band:q('pullups').value,p_plank_band:q('plank').value,p_cardio_level:q('cardio').value,p_equipment:[q('equipment').value]});if(e1){q('error').textContent='Čuvanje nije uspelo: '+e1.message;q('error').classList.remove('hidden');q('finish').disabled=false;q('finish').textContent='Formiraj profil';return}"
+          if old not in s:
+              raise SystemExit('finish handler not found')
+          s=s.replace(old,new,1)
+
+          # Restore blocked-user guard if it was not yet deployed.
+          marker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){q('loginWarning').classList.remove('hidden');return}"
+          replacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){q('loginWarning').classList.remove('hidden');return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){alert('Tvoj KOLOS nalog je trenutno blokiran.');await supabase.auth.signOut();location.href='login.html';return}"
+          if marker in s and 'Tvoj KOLOS nalog je trenutno blokiran.' not in s:
+              s=s.replace(marker,replacement,1)
+
           p.write_text(s)
           PY
-      - name: Commit blocking controls
+      - name: Commit questionnaire fix
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add admin.html dashboard.html questionnaire.html
+          git add questionnaire.html
           git diff --cached --quiet && exit 0
-          git commit -m "Add admin user blocking controls"
+          git commit -m "Fix KOLOS questionnaire completion flow"
           git push
