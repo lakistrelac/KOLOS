@@ -9,40 +9,47 @@ permissions:
   contents: write
 
 jobs:
-  repair:
+  upgrade:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove legacy gym state tail
+      - name: Add exercise result memory to dashboard
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
-          p = Path('dashboard.html')
-          s = p.read_text()
+          p=Path('dashboard.html')
+          s=p.read_text()
 
-          # A legacy gym-only tail remained after get_my_today_rank_state()
-          # and produced `Unexpected token =` in the browser.
-          pattern = r"\}=await supabase\.rpc\('get_my_today_workout_state'\);if\(error\)\{todayKey=localKey\(\);return\}const row=Array\.isArray\(data\)\?data\[0\]:data;todayKey=row\?\.workout_date\|\|localKey\(\);todayCompleted=row\?\.completed\?\{reward_xp:row\.reward_xp,mission_key:row\.mission_key\}:null;if\(todayCompleted\)showCompleted\(todayCompleted\.reward_xp\)\}"
-          ns, n = re.subn(pattern, '}', s, count=1)
-          if n != 1:
-              raise SystemExit(f'legacy tail removal count={n}')
+          css=""".exerciseCopy{min-width:0}.logResult{margin-top:8px;border:1px solid rgba(200,255,77,.28);background:rgba(200,255,77,.09);color:#dfffa0;border-radius:10px;padding:7px 9px;font-size:10px;font-weight:950;cursor:pointer}.resultPanel{display:none;margin-top:9px;padding:10px;border-radius:12px;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.08)}.resultPanel.open{display:block}.resultFields{display:grid;grid-template-columns:88px 120px auto;gap:7px}.resultFields input{min-width:0;width:100%;border:1px solid rgba(255,255,255,.14);background:#fff;color:#121411;border-radius:10px;padding:8px 9px;font:inherit;font-size:12px}.saveResult{border:0;border-radius:10px;background:#c8ff4d;color:#121411;padding:8px 10px;font-size:11px;font-weight:1000;cursor:pointer}.saveResult:disabled{opacity:.55}.resultStatus{min-height:15px;margin-top:7px;color:#b9c0b3;font-size:10px;font-weight:850}@media(max-width:560px){.resultFields{grid-template-columns:1fr 1fr}.saveResult{grid-column:1/-1}}"""
+          if '.resultPanel{' not in s:
+              s=s.replace('.mission{display:none',css+'.mission{display:none',1)
 
-          required = [
-              "get_my_rank_plan",
-              "start_my_rank_session",
-              "complete_rank_aware_workout",
-              "get_my_today_rank_state",
-              "Adaptivni KOLOS engine",
-              "DOMINUS — APEX",
-          ]
-          missing = [x for x in required if x not in ns]
+          helper="""function item(e){const slug=e[2]||'',previous=e[3]||'Kontrolisano izvođenje',blocked=['plank','dead-bug','mobility-flow','brisk-walk','easy-jog','easy-cycle'],canLog=Number(currentPlan?.complexity||0)>=3&&slug&&currentEnvironment!=='conditioning'&&!blocked.includes(slug);return '<div class="checkItem" data-slug="'+slug+'"><button class="tick" type="button">✓</button><div class="exerciseCopy"><b>'+e[0]+'</b><span>'+previous+'</span>'+(canLog?'<button class="logResult" type="button">＋ Zabeleži seriju</button><div class="resultPanel"><div class="resultFields"><input class="repsInput" type="number" min="1" max="100" inputmode="numeric" placeholder="pon."><input class="loadInput" type="number" min="0" max="500" step="0.5" inputmode="decimal" placeholder="kg (opciono)"><button class="saveResult" type="button">Sačuvaj</button></div><div class="resultStatus"></div></div>':'')+'</div><div class="target">'+e[1]+'</div></div>'}async function ensureActiveSession(){if(currentSessionId)return currentSessionId;if(!currentEnvironment)throw new Error('Prvo izaberi okruženje.');const{data,error}=await supabase.rpc('start_my_rank_session',{p_environment:currentEnvironment});if(error)throw error;currentSessionId=data;return currentSessionId}function wireResultLogging(){document.querySelectorAll('.logResult').forEach(b=>b.onclick=()=>{const panel=b.parentElement.querySelector('.resultPanel');panel.classList.toggle('open');b.textContent=panel.classList.contains('open')?'− Zatvori rezultat':'＋ Zabeleži seriju'});document.querySelectorAll('.saveResult').forEach(b=>b.onclick=async()=>{const row=b.closest('.checkItem'),status=row.querySelector('.resultStatus'),repsEl=row.querySelector('.repsInput'),loadEl=row.querySelector('.loadInput'),reps=Number(repsEl.value),loadText=loadEl.value.trim();if(!Number.isInteger(reps)||reps<1||reps>100){status.textContent='Unesi broj ponavljanja.';return}const load=loadText===''?null:Number(loadText);if(load!==null&&(!Number.isFinite(load)||load<0||load>500)){status.textContent='Proveri uneto opterećenje.';return}b.disabled=true;b.textContent='Čuvam…';try{const sid=await ensureActiveSession();const{data,error}=await supabase.rpc('save_my_work_set',{p_session_id:sid,p_exercise_slug:row.dataset.slug,p_reps:reps,p_load_kg:load,p_duration_seconds:null});if(error)throw error;const out=Array.isArray(data)?data[0]:data;status.textContent='Serija '+(out?.set_index||'')+' sačuvana · '+reps+' pon.'+(load!==null?' · '+load+' kg':'');repsEl.value='';loadEl.value=''}catch(err){status.textContent='Nije sačuvano: '+(err?.message||'pokušaj ponovo.')}finally{b.disabled=false;b.textContent='Sačuvaj'}})}function renderPlan"""
+          ns,n=re.subn(r"function item\(e\)\{.*?\}function renderPlan",helper,s,count=1,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'item/logger replacement count={n}')
+          s=ns
+
+          old="q('coachText').textContent=p.coaching||'Kvalitet izvođenja ima prednost nad brojkom.';"
+          new="q('coachText').textContent=(p.coaching||'Kvalitet izvođenja ima prednost nad brojkom.')+(Number(p.complexity||0)>=3?' Rezultate možeš opciono beležiti ispod glavnih vežbi; KOLOS će ih zapamtiti za sledeći put.':'');"
+          if old in s:
+              s=s.replace(old,new,1)
+
+          marker="document.querySelectorAll('.tick').forEach(b=>b.onclick=()=>{b.parentElement.classList.toggle('done');updateChecks()});updateChecks()}function updateChecks"
+          replacement="document.querySelectorAll('.tick').forEach(b=>b.onclick=()=>{b.parentElement.classList.toggle('done');updateChecks()});wireResultLogging();updateChecks()}function updateChecks"
+          if marker not in s:
+              raise SystemExit('render logger wiring marker missing')
+          s=s.replace(marker,replacement,1)
+
+          required=['save_my_work_set','wireResultLogging','Zabeleži seriju','get_my_rank_plan','complete_rank_aware_workout']
+          missing=[x for x in required if x not in s]
           if missing:
-              raise SystemExit('missing V2 markers: ' + ', '.join(missing))
+              raise SystemExit('missing logger markers: '+', '.join(missing))
 
-          p.write_text(ns)
+          p.write_text(s)
           PY
 
       - name: Validate dashboard JavaScript before commit
@@ -51,20 +58,19 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          html = Path('dashboard.html').read_text()
-          m = re.search(r'<script type="module">(.*)</script>', html, re.S)
-          if not m:
-              raise SystemExit('dashboard module script not found')
+          html=Path('dashboard.html').read_text()
+          m=re.search(r'<script type="module">(.*)</script>',html,re.S)
+          if not m: raise SystemExit('dashboard module script not found')
           Path('/tmp/kolos-dashboard.mjs').write_text(m.group(1))
           PY
           node --check /tmp/kolos-dashboard.mjs
 
-      - name: Commit repaired dashboard
+      - name: Commit exercise memory UI
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
           git add dashboard.html
           git diff --cached --quiet && exit 0
-          git commit -m "Repair KOLOS rank engine dashboard syntax"
+          git commit -m "Add KOLOS exercise result memory"
           git push
