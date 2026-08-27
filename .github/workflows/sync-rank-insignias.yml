@@ -48,7 +48,7 @@ jobs:
           if cc_old in s:
               s=s.replace(cc_old,cc_new,1)
 
-          required=['rotationMode','variant_key','rotation_index','nextCue','Sledeći fokus','save_my_work_set']
+          required=['rotationMode','variant_key','rotation_index','nextCue','cue=e[4]','save_my_work_set']
           missing=[x for x in required if x not in s]
           if missing:
               raise SystemExit('missing adaptive UI markers: '+', '.join(missing))
