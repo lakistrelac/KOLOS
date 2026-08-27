@@ -13,45 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Expose adaptive rotation and next-focus coaching
+      - name: Add visible Engine V2 launch strip
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           p=Path('dashboard.html')
           s=p.read_text()
 
-          s=s.replace('.engineIntel{display:grid;grid-template-columns:repeat(3,1fr);', '.engineIntel{display:grid;grid-template-columns:repeat(4,1fr);', 1)
-          if '.nextCue{' not in s:
-              s=s.replace('.exerciseCopy{min-width:0}', '.exerciseCopy{min-width:0}.nextCue{display:block!important;margin-top:4px!important;color:#d9e7bd!important;font-size:10px!important;line-height:1.45}.prevResult{display:block!important}', 1)
+          css=""".engineLaunchStrip{margin-top:12px;padding:18px 20px;border-radius:22px;background:linear-gradient(135deg,#121510,#202817);color:#f7f8f3;border:1px solid rgba(200,255,77,.26);display:flex;align-items:center;justify-content:space-between;gap:18px;box-shadow:0 14px 34px rgba(20,22,18,.11)}.engineLaunchCopy{min-width:0}.engineLaunchKicker{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border-radius:999px;background:#c8ff4d;color:#121411;font-size:9px;font-weight:1000;letter-spacing:.11em}.engineLaunchStrip strong{display:block;font-size:22px;margin-top:9px;letter-spacing:-.03em}.engineLaunchStrip p{margin:5px 0 0;color:#b8c0b2;font-size:12px;line-height:1.5}.engineLaunchPills{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.engineLaunchPills span{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.09);font-size:10px;font-weight:950;white-space:nowrap}@media(max-width:760px){.engineLaunchStrip{align-items:flex-start;flex-direction:column}.engineLaunchPills{justify-content:flex-start}}"""
+          if '.engineLaunchStrip{' not in s:
+              s=s.replace('.stats{display:grid;',css+'.stats{display:grid;',1)
 
-          old='<div class="intelBox"><span>ENGINE NIVO</span><b id="engineLevel">—</b></div><div class="intelBox"><span>PROGRESIJA</span><b id="progressionMode">—</b></div>'
-          new='<div class="intelBox"><span>ENGINE NIVO</span><b id="engineLevel">—</b></div><div class="intelBox"><span>ROTACIJA</span><b id="rotationMode">—</b></div><div class="intelBox"><span>PROGRESIJA</span><b id="progressionMode">—</b></div>'
-          if old in s and 'id="rotationMode"' not in s:
-              s=s.replace(old,new,1)
+          block='''<section id="engineLaunchStrip" class="engineLaunchStrip"><div class="engineLaunchCopy"><span class="engineLaunchKicker">● KOLOS ENGINE V2 · LIVE</span><strong>Adaptivni trening je aktivan.</strong><p>KOLOS sada koristi tvoj rang, iskustvo, raspoloživo vreme, prethodne treninge i A/B/C rotaciju pri izboru misije.</p></div><div class="engineLaunchPills"><span>11 nivoa</span><span>4 okruženja</span><span>A/B/C rotacije</span><span>memorija rezultata</span></div></section>'''
 
-          item_fn="""function item(e){const slug=e[2]||'',previous=e[3]||'Kontrolisano izvođenje',cue=e[4]||'',blocked=['plank','dead-bug','mobility-flow','brisk-walk','easy-jog','easy-cycle'],canLog=Number(currentPlan?.complexity||0)>=3&&slug&&currentEnvironment!=='conditioning'&&!blocked.includes(slug);return '<div class="checkItem" data-slug="'+slug+'"><button class="tick" type="button">✓</button><div class="exerciseCopy"><b>'+e[0]+'</b><span class="prevResult">'+previous+'</span>'+(cue?'<span class="nextCue">'+cue+'</span>':'')+(canLog?'<button class="logResult" type="button">＋ Zabeleži seriju</button><div class="resultPanel"><div class="resultFields"><input class="repsInput" type="number" min="1" max="100" inputmode="numeric" placeholder="pon."><input class="loadInput" type="number" min="0" max="500" step="0.5" inputmode="decimal" placeholder="kg (opciono)"><button class="saveResult" type="button">Sačuvaj</button></div><div class="resultStatus"></div></div>':'')+'</div><div class="target">'+e[1]+'</div></div>'}async function ensureActiveSession"""
-          s,n=re.subn(r"function item\(e\)\{.*?\}async function ensureActiveSession",item_fn,s,count=1,flags=re.S)
-          if n!=1:
-              raise SystemExit(f'item replacement count={n}')
+          anchor='</div></div><div class="stats">'
+          if 'id="engineLaunchStrip"' not in s:
+              if anchor not in s:
+                  raise SystemExit('hero/stats anchor not found')
+              s=s.replace(anchor,'</div></div>'+block+'<div class="stats">',1)
 
-          marker="q('engineLevel').textContent=p.engine_label||p.tag||'KOLOS';q('progressionMode').textContent=p.progression||'Kontrolisana progresija';"
-          replacement="q('engineLevel').textContent=p.engine_label||p.tag||'KOLOS';q('rotationMode').textContent=(p.variant_key||'—')+' · '+Number(p.rotation_index||1)+'/'+Number(p.rotation_total||1);q('progressionMode').textContent=p.progression||'Kontrolisana progresija';"
-          if marker not in s:
-              raise SystemExit('renderPlan rotation marker missing')
-          s=s.replace(marker,replacement,1)
-
-          cc_old="(plan.engine_label||'KOLOS')+' · '+(plan.progression||'adaptivna progresija')"
-          cc_new="(plan.engine_label||'KOLOS')+' · rotacija '+(plan.variant_key||'—')+' · '+(plan.progression||'adaptivna progresija')"
-          if cc_old in s:
-              s=s.replace(cc_old,cc_new,1)
-
-          required=['rotationMode','variant_key','rotation_index','nextCue','cue=e[4]','save_my_work_set']
+          required=['KOLOS ENGINE V2 · LIVE','Adaptivni trening je aktivan.','11 nivoa','A/B/C rotacije','memorija rezultata','get_my_rank_plan','save_my_work_set']
           missing=[x for x in required if x not in s]
           if missing:
-              raise SystemExit('missing adaptive UI markers: '+', '.join(missing))
+              raise SystemExit('missing visible V2 markers: '+', '.join(missing))
 
           p.write_text(s)
           PY
@@ -69,12 +55,12 @@ jobs:
           PY
           node --check /tmp/kolos-dashboard.mjs
 
-      - name: Commit adaptive coaching UI
+      - name: Commit visible Engine V2 strip
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
           git add dashboard.html
           git diff --cached --quiet && exit 0
-          git commit -m "Expose KOLOS adaptive rotation and next-focus coaching"
+          git commit -m "Make KOLOS Engine V2 visible on dashboard"
           git push
