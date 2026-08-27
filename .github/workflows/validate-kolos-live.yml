@@ -24,6 +24,7 @@ jobs:
           from pathlib import Path
           import re
 
+          # Validate the current live V2 dashboard, including rank-engine wiring.
           html = Path('dashboard.html').read_text()
           required = [
               'get_my_rank_plan',
