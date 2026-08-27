@@ -29,36 +29,38 @@ let activeKey='0-lo',baseXp=650,taskDelta=0,selectedEnv=null,statuses=[];
 function fmt(n){return n.toLocaleString('sr-RS')}function view(){return views.find(v=>v.key===activeKey)||views[0]}function viewName(v){return v.r.name+(v.r.single?'':' — '+v.sub)}
 function svgInsignia(type,high){
 const palettes={
-  initiate:['#dce3e8','#87939e','#2e3740'],
-  vanguard:['#a9dcff','#397fff','#173f78'],
-  warrior:['#ffb39f','#f05f49','#76251e'],
-  titan:['#d0afff','#8d50f6','#342354'],
-  kolos:['#ddff75','#9dce27','#34490d'],
-  dominus:['#ffe5a0','#e2b640','#5d4611']
+  initiate:['#f2f4f6','#aab1b8','#343a40'],
+  vanguard:['#d8ecff','#67a7ff','#173e78'],
+  warrior:['#ffd2c6','#ff8068','#7f3022'],
+  titan:['#eadcff','#a86bff','#3a235d'],
+  kolos:['#efffb2','#b9ea38','#40540d'],
+  dominus:['#fff0b6','#f0c54b','#664b10']
 };
 const p=palettes[type]||palettes.initiate;
 const id='rk_'+type+'_'+(high?'h':'l');
-const low={
-  initiate:'<path d="M60 12 88 28 85 62 60 88 35 62 32 28z"/><path d="M60 22 75 33 71 58 60 72 49 58 45 33z"/><path d="M45 40h30M48 56h24"/>',
-  vanguard:'<path d="M60 10 91 30 84 66 60 90 36 66 29 30z"/><path d="M60 20 76 37 70 68 60 78 50 68 44 37z"/><path d="m38 43 22-19 22 19M42 62h36"/>',
-  warrior:'<path d="M60 9 91 27 88 68 60 92 32 68 29 27z"/><path d="m40 30 40 40M80 30 40 70"/><path d="m34 24 14 4-10 10zM86 24l-14 4 10 10z"/><path d="M45 75h30"/>',
-  titan:'<path d="M60 8 94 29 88 70 60 93 32 70 26 29z"/><path d="M34 28h52l-8 17H68v35H52V45H42z"/><path d="M60 16 68 27 60 38 52 27z"/><path d="M42 82h36"/>',
-  kolos:'<path d="M60 7 95 29 89 72 60 94 31 72 25 29z"/><path d="M60 18v58M60 45 77 31M60 45 77 60M60 45 44 32M60 45 43 61"/><path d="M37 72h46"/><path d="m38 25 8 7 14-18 14 18 8-7"/>',
-  dominus:'<path d="M60 6 95 25 98 61 78 91 42 91 22 61 25 25z"/><path d="m60 14 10 23 25 2-19 16 7 25-23-14-23 14 7-25-19-16 25-2z"/><path d="M60 37 70 50 60 63 50 50z"/>'
+const sigils={
+  initiate:'<path d="M46 40h28v8H46zM50 54h20v8H50z"/>',
+  vanguard:'<path d="M60 34 77 50 60 66 43 50z"/><path d="M60 42v16M52 50h16"/>',
+  warrior:'<path d="M47 39 73 65M73 39 47 65"/><path d="m44 36 8 2-6 6zM76 36l-8 2 6 6z"/>',
+  titan:'<path d="M42 38h36l-5 11H66v22H54V49h-7z"/>',
+  kolos:'<path d="M60 34v34M60 50l13-10M60 50l13 11M60 50 48 40M60 50 47 61"/>',
+  dominus:'<path d="m60 34 6 13 14 1-11 9 4 14-13-8-13 8 4-14-11-9 14-1z"/>'
 };
-const hi={
-  initiate:'<path d="M60 7 94 25 91 65 60 94 29 65 26 25z"/><path d="M60 15 80 29 76 61 60 82 44 61 40 29z"/><path d="M38 38h44M41 55h38M47 70h26"/><path d="m45 27 15-14 15 14"/>',
-  vanguard:'<path d="M60 6 96 27 90 69 60 95 30 69 24 27z"/><path d="M60 14 82 35 76 70 60 86 44 70 38 35z"/><path d="m31 43 29-29 29 29M34 60h52M42 77h36"/><path d="M60 23v51"/>',
-  warrior:'<path d="M60 5 96 25 92 71 60 96 28 71 24 25z"/><path d="M33 27 87 77M87 27 33 77"/><path d="m26 18 19 6-14 13zM94 18l-19 6 14 13z"/><path d="M40 80h40M46 68h28"/><path d="M60 37 70 51 60 65 50 51z"/>',
-  titan:'<path d="M60 4 99 27 92 73 60 97 28 73 21 27z"/><path d="M27 24h66l-10 22H70v39H50V46H37z"/><path d="M60 10 71 27 60 43 49 27z"/><path d="m29 34-9 12 12 3M91 34l9 12-12 3"/><path d="M37 87h46"/><path d="M42 19 31 11M78 19l11-8"/>',
-  kolos:'<path d="M60 3 99 26 93 75 60 98 27 75 21 26z"/><path d="M60 11 74 29 87 18 98 38 88 76 60 92 32 76 22 38 33 18 46 29z"/><path d="M60 16v64M60 46 80 29M60 46 81 64M60 46 41 30M60 46 39 65"/><path d="M31 76h58"/><path d="M35 27V12M47 24V7M73 24V7M85 27V12"/>',
-  dominus:'<path d="M60 2 101 22 103 62 82 95 38 95 17 62 19 22z"/><path d="m60 8 12 27 29 2-22 19 8 29-27-16-27 16 8-29-22-19 29-2z"/><path d="M60 29 75 49 60 69 45 49z"/><path d="M60 5v16M26 21l13 12M94 21 81 33M22 68l18-4M98 68l-18-4"/><path d="M39 91h42"/>'
-};
-const shape=(high?hi:low)[type]||(high?hi.initiate:low.initiate);
-return '<svg viewBox="0 0 120 102" aria-hidden="true" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">'+
-  '<defs><linearGradient id="'+id+'g" x1="20" y1="10" x2="93" y2="94" gradientUnits="userSpaceOnUse"><stop stop-color="'+p[0]+'"/><stop offset=".52" stop-color="'+p[1]+'"/><stop offset="1" stop-color="'+p[2]+'"/></linearGradient><filter id="'+id+'s" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="'+p[2]+'" flood-opacity=".28"/></filter></defs>'+
-  '<g filter="url(#'+id+'s)" fill="url(#'+id+'g)" stroke="'+p[2]+'" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">'+shape+'</g>'+
-  '<g fill="none" stroke="'+p[0]+'" stroke-width="1.35" opacity=".72"><path d="M60 13 60 87"/><path d="M40 31 60 20 80 31"/></g></svg>';
+const extra=high?'<path d="M42 28 51 20 60 28 69 20 78 28 75 36H45z"/><path d="M60 16 66 24 60 32 54 24z"/>':'<path d="M48 29h24l-4 7H52z"/>';
+return '<svg viewBox="0 0 120 104" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'+
+  '<defs><linearGradient id="'+id+'g" x1="30" y1="18" x2="88" y2="90" gradientUnits="userSpaceOnUse"><stop stop-color="'+p[0]+'"/><stop offset=".48" stop-color="'+p[1]+'"/><stop offset="1" stop-color="'+p[2]+'"/></linearGradient><linearGradient id="'+id+'d" x1="28" y1="22" x2="88" y2="92" gradientUnits="userSpaceOnUse"><stop stop-color="#20242a"/><stop offset="1" stop-color="#0d1014"/></linearGradient></defs>'+
+  '<g stroke="#15191d" stroke-width="3.6" stroke-linejoin="round">'+
+    '<path d="M60 8 94 28 88 73 60 96 32 73 26 28z" fill="url(#'+id+'d)"/>'+
+    '<path d="M60 13 88 30 82 68 60 88 38 68 32 30z" fill="url(#'+id+'g)"/>'+
+    '<path d="M60 20 80 33 75 63 60 79 45 63 40 33z" fill="#15191d"/>'+
+    '<path d="M35 35 46 29 48 39 39 46zM85 35 74 29 72 39 81 46z" fill="'+p[1]+'"/>'+
+    '<path d="M39 68 49 73 60 83 71 73 81 68 78 78 60 91 42 78z" fill="'+p[2]+'"/>'+
+    '<g fill="url(#'+id+'g)">'+extra+'</g>'+
+    '<g fill="url(#'+id+'g)" stroke-width="3">'+sigils[type]+'</g>'+
+  '</g>'+
+  '<path d="M42 33 60 22 78 33" fill="none" stroke="'+p[0]+'" stroke-width="1.5" opacity=".9"/>'+
+  '<path d="M44 67 60 81 76 67" fill="none" stroke="'+p[0]+'" stroke-width="1.2" opacity=".7"/>'+
+'</svg>';
 }
 function renderLandingRanks(){document.getElementById('landingRanks').innerHTML=rankDefs.map(r=>{if(r.single)return `<div class="rankGroup apex" style="--rc:${r.color};--ri:${r.ink};--rs:${r.soft}"><div class="rankHead2"><h3>${r.name}</h3><span class="rankCode">ZAVRŠNI ČIN</span></div><div class="tier2"><div class="tierCap">DOMINUS</div><div class="insignia">${svgInsignia(r.type,true)}</div><div class="xpLine">22.000+ XP</div></div></div>`;return `<div class="rankGroup" style="--rc:${r.color};--ri:${r.ink};--rs:${r.soft}"><div class="rankHead2"><h3>${r.name}</h3><span class="rankCode">RANG ${r.roman}</span></div><div class="rankPair2"><div class="tier2"><div class="tierCap">NIŽI</div><div class="insignia">${svgInsignia(r.type,false)}</div><div class="xpLine">${fmt(r.lo[0])}–${fmt(r.lo[1])} XP</div></div><div class="tier2 high"><div class="tierCap">VIŠI</div><div class="insignia">${svgInsignia(r.type,true)}</div><div class="xpLine">${fmt(r.hi[0])}–${fmt(r.hi[1])} XP</div></div></div></div>`}).join('')}
 function openLogin(){location.href='login.html'}function closeLogin(){document.getElementById('loginModal').classList.remove('open')}function enterAdmin(){document.getElementById('landing').classList.add('hidden');document.getElementById('account').classList.remove('hidden');renderAll();window.scrollTo(0,0)}function showLanding(){document.getElementById('account').classList.add('hidden');document.getElementById('landing').classList.remove('hidden');window.scrollTo(0,0)}
