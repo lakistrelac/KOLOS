@@ -1,4 +1,4 @@
-name: Sync rank insignias
+name: KOLOS live upgrades
 
 on:
   push:
@@ -9,42 +9,44 @@ permissions:
   contents: write
 
 jobs:
-  sync:
+  upgrade:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix questionnaire completion flow
+      - name: Upgrade dashboard to Command Center
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          p=Path('questionnaire.html')
+          p=Path('dashboard.html')
           s=p.read_text()
 
-          s=s.replace('<h2>Oprema i ograničenja</h2>','<h2>Oprema</h2>')
-          s=s.replace('<div class="field full"><label>Pokreti ili vežbe koje želiš da izbegavaš (opciono)</label><textarea id="limitations"></textarea></div>','')
+          css=""".commandCenter{margin-top:13px;padding:22px;border-radius:26px;background:linear-gradient(145deg,#121510,#242a1d);color:#f7f8f3;box-shadow:0 18px 46px rgba(20,22,18,.12);overflow:hidden;position:relative}.commandCenter:after{content:'';position:absolute;width:260px;height:260px;border-radius:50%;right:-120px;top:-130px;background:color-mix(in srgb,var(--rank) 28%,transparent);pointer-events:none}.ccTop{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;position:relative;z-index:1}.ccTop h2{font-size:32px;letter-spacing:-.04em;margin:6px 0}.ccTop .muted{color:#b7bdb2}.ccRankPulse{min-width:150px;padding:14px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);text-align:right}.ccRankPulse span{display:block;font-size:9px;font-weight:1000;letter-spacing:.12em;color:#aeb5a8}.ccRankPulse b{display:block;font-size:34px;margin-top:4px;color:#c8ff4d}.ccGrid{display:grid;grid-template-columns:1.25fr .8fr .95fr;gap:12px;margin-top:16px;position:relative;z-index:1}.ccBox{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.055);border-radius:20px;padding:17px;min-height:174px}.ccBox .eyebrow{color:#9fa79a}.ccMissionTitle{font-size:25px;font-weight:1000;margin:7px 0}.ccMeta{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.ccChip{padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.08);font-size:10px;font-weight:950;color:#dce1d8}.ccStart{width:100%;border:0;border-radius:14px;padding:13px 16px;background:#c8ff4d;color:#121411;font-weight:1000;cursor:pointer}.ccMetric{font-size:42px;font-weight:1000;letter-spacing:-.05em;margin-top:8px}.ccMetric small{font-size:15px;color:#aeb5a8;letter-spacing:0}.ccProgress{height:9px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:13px}.ccProgress span{display:block;height:100%;border-radius:999px;background:#c8ff4d}.ccRecent{display:grid;gap:7px;margin-top:10px}.ccRecent div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px}.ccRecent div:last-child{border-bottom:0}.ccRecent strong{max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ccEmpty{font-size:12px;color:#aeb5a8;line-height:1.55;margin-top:10px}@media(max-width:900px){.ccGrid{grid-template-columns:1fr}.ccTop{flex-direction:column}.ccRankPulse{text-align:left}}"""
+          if '.commandCenter{' not in s:
+              s=s.replace('.admin{background:',css+'.admin{background:',1)
 
-          old="q('finish').onclick=async()=>{if(!valid())return;q('finish').disabled=true;q('finish').textContent='Čuvam...';const payload={user_id:user.id,preferred_environment:state.environment,primary_goal:state.goal,age:Number(q('age').value),body_weight:Number(q('weight').value),experience_level:q('level').value,training_days:Number(q('days').value),session_minutes:Number(q('minutes').value),pushups_band:q('pushups').value,pullups_band:q('pullups').value,plank_band:q('plank').value,cardio_level:q('cardio').value,equipment:[q('equipment').value],limitations:q('limitations').value.trim(),updated_at:new Date().toISOString()};const{error:e1}=await supabase.from('onboarding_profiles').upsert(payload);if(e1){q('error').textContent='Čuvanje nije uspelo. Pokušaj ponovo.';q('error').classList.remove('hidden');q('finish').disabled=false;q('finish').textContent='Formiraj profil';return}await supabase.from('profiles').update({onboarding_complete:true,updated_at:new Date().toISOString()}).eq('id',user.id);"
-          new="q('finish').onclick=async()=>{if(!valid())return;q('finish').disabled=true;q('finish').textContent='Čuvam...';const{error:e1}=await supabase.rpc('save_my_onboarding',{p_preferred_environment:state.environment,p_primary_goal:state.goal,p_age:Number(q('age').value),p_body_weight:Number(q('weight').value),p_experience_level:q('level').value,p_training_days:Number(q('days').value),p_session_minutes:Number(q('minutes').value),p_pushups_band:q('pushups').value,p_pullups_band:q('pullups').value,p_plank_band:q('plank').value,p_cardio_level:q('cardio').value,p_equipment:[q('equipment').value]});if(e1){q('error').textContent='Čuvanje nije uspelo: '+e1.message;q('error').classList.remove('hidden');q('finish').disabled=false;q('finish').textContent='Formiraj profil';return}"
-          if old not in s:
-              raise SystemExit('finish handler not found')
-          s=s.replace(old,new,1)
+          html="""<section id="commandCenter" class="commandCenter"><div class="ccTop"><div><div class="eyebrow">KOLOS COMMAND CENTER</div><h2 id="ccHeadline">Današnja misija čeka.</h2><div id="ccSub" class="muted">Tvoj plan, ritam i put do sledećeg nivoa na jednom mestu.</div></div><div class="ccRankPulse"><span>NAPREDAK RANGA</span><b id="ccRankPercent">0%</b></div></div><div class="ccGrid"><article class="ccBox"><div class="eyebrow">DANAŠNJA MISIJA</div><div id="ccMissionTitle" class="ccMissionTitle">Učitavam plan…</div><div class="ccMeta"><span id="ccEnvironment" class="ccChip">—</span><span id="ccDuration" class="ccChip">—</span><span id="ccReward" class="ccChip">—</span></div><button id="ccStart" class="ccStart">ZAPOČNI MISIJU</button></article><article class="ccBox"><div class="eyebrow">OVIH 7 DANA</div><div class="ccMetric"><span id="ccWeek">0</span><small id="ccGoal"> / 4 treninga</small></div><div class="ccProgress"><span id="ccWeekBar" style="width:0%"></span></div><div id="ccWeekText" class="ccEmpty">Svaki završen trening gradi momentum.</div></article><article class="ccBox"><div class="eyebrow">POSLEDNJE MISIJE</div><div id="ccRecent" class="ccRecent"><div class="ccEmpty">Još nema završenih misija.</div></div></article></div></section>"""
+          if 'id="commandCenter"' not in s:
+              s=s.replace('<section id="adminCard"',html+'<section id="adminCard"',1)
 
-          # Restore blocked-user guard if it was not yet deployed.
-          marker="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){q('loginWarning').classList.remove('hidden');return}"
-          replacement="async function boot(){const{data:{session}}=await supabase.auth.getSession();if(!session){q('loginWarning').classList.remove('hidden');return}const{data:accessProfile}=await supabase.from('profiles').select('is_blocked,role').eq('id',session.user.id).single();if(accessProfile?.is_blocked&&accessProfile?.role!=='admin'){alert('Tvoj KOLOS nalog je trenutno blokiran.');await supabase.auth.signOut();location.href='login.html';return}"
-          if marker in s and 'Tvoj KOLOS nalog je trenutno blokiran.' not in s:
-              s=s.replace(marker,replacement,1)
+          s=s.replace("supabase.from('onboarding_profiles').select('primary_goal,experience_level')","supabase.from('onboarding_profiles').select('primary_goal,experience_level,training_days,session_minutes,preferred_environment')",1)
+
+          js="""async function renderCommandCenter(){const v=actual(),xp=Number(progress?.xp||0),span=Math.max(1,v.range[1]-v.range[0]),pct=v.r.single?100:Math.max(0,Math.min(100,Math.round((xp-v.range[0])/span*100)));q('ccRankPercent').textContent=pct+'%';const plan=planForKey(todayKey||localKey()),preferred=onboarding?.preferred_environment||'gym',envNames={gym:'Teretana',street:'Street Workout',conditioning:'Kondicija',home:'Kuća'};q('ccMissionTitle').textContent=todayCompleted?'Misija završena: '+(todayCompleted.mission_key||plan.title):plan.title;q('ccEnvironment').textContent=envNames[preferred]||'Teretana';q('ccDuration').textContent=(onboarding?.session_minutes||60)+' min';q('ccReward').textContent='+'+plan.reward+' XP';q('ccStart').textContent=todayCompleted?'DANAŠNJA MISIJA ZAVRŠENA':'ZAPOČNI MISIJU';q('ccStart').disabled=!!todayCompleted;q('ccHeadline').textContent=todayCompleted?'Današnji posao je završen.':'Danas gradiš sledeći nivo.';q('ccSub').textContent=todayCompleted?'Sačuvaj ritam. Sledeća misija se otključava sutra.':'Jedna jasna misija. Bez nepotrebnog razmišljanja.';const since=new Date(Date.now()-7*86400000).toISOString();const{data:recent,error}=await supabase.from('workout_completions').select('workout_date,mission_key,reward_xp,completed_at').eq('user_id',me.id).gte('completed_at',since).order('completed_at',{ascending:false});const week=error?[]:(recent||[]);const goal=Math.max(2,Number(onboarding?.training_days||4));q('ccWeek').textContent=week.length;q('ccGoal').textContent=' / '+goal+' treninga';q('ccWeekBar').style.width=Math.min(100,week.length/goal*100)+'%';q('ccWeekText').textContent=week.length>=goal?'Nedeljni cilj je ispunjen. Održavaj ritam.':Math.max(0,goal-week.length)+' treninga do nedeljnog cilja.';q('ccRecent').innerHTML=week.length?week.slice(0,3).map(x=>'<div><strong>'+x.mission_key+'</strong><span>+'+x.reward_xp+' XP</span></div>').join(''):'<div class="ccEmpty">Prva završena misija će se pojaviti ovde.</div>';q('ccStart').onclick=()=>{const btn=document.querySelector('.env[data-env="'+preferred+'"]')||document.querySelector('.env[data-env="gym"]');if(btn){btn.click();setTimeout(()=>q('mission').scrollIntoView({behavior:'smooth',block:'start'}),120)}}}"""
+          if 'async function renderCommandCenter()' not in s:
+              s=s.replace('async function boot(){',js+'async function boot(){',1)
+
+          s=s.replace("await loadTodayState();if(!todayKey)todayKey=localKey();countdownTick();","await loadTodayState();if(!todayKey)todayKey=localKey();await renderCommandCenter();countdownTick();",1)
+          s=s.replace("renderHero();showCompleted(row.reward_xp)}};","renderHero();showCompleted(row.reward_xp);await renderCommandCenter()}};",1)
 
           p.write_text(s)
           PY
-      - name: Commit questionnaire fix
+      - name: Commit KOLOS V2 Command Center
         shell: bash
         run: |
           git config user.name "KOLOS Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add questionnaire.html
+          git add dashboard.html
           git diff --cached --quiet && exit 0
-          git commit -m "Fix KOLOS questionnaire completion flow"
+          git commit -m "Launch KOLOS V2 Command Center"
           git push
